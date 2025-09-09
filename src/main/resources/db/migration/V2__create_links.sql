@@ -1,6 +1,6 @@
 CREATE TABLE links (
-    id BIGSERIAL PRIMARY KEY,
-    user_id BIGINT REFERENCES users(id),
+    id UUID PRIMARY KEY,
+    user_id UUID REFERENCES users(id),
     slug VARCHAR(32) UNIQUE NOT NULL,
     target_url TEXT NOT NULL,
     expires_at TIMESTAMPTZ,
