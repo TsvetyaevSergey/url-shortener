@@ -1,5 +1,6 @@
-package dev.horoz.url_shortener.api.auth;
+package dev.horoz.url_shortener.service;
 
+import dev.horoz.url_shortener.exceptions.EmailAlreadyExistsException;
 import dev.horoz.url_shortener.domain.User;
 import dev.horoz.url_shortener.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Value;
@@ -17,7 +18,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
-import java.util.List;
 
 @Service
 public class AuthService {
@@ -67,14 +67,11 @@ public class AuthService {
         Instant now = Instant.now();
         Instant exp = now.plusSeconds(ttlSeconds);
 
-        // Так как у вас сейчас всегда USER, кладём roles=["USER"].
-        // Позже можно брать из authentication.getAuthorities().
         JwtClaimsSet claims = JwtClaimsSet.builder()
                 .issuer("url-shortener")
                 .issuedAt(now)
                 .expiresAt(exp)
-                .subject(authentication.getName()) // email
-                .claim("roles", List.of("USER"))
+                .subject(authentication.getName())
                 .build();
 
         JwsHeader headers = JwsHeader.with(MacAlgorithm.HS256).build();

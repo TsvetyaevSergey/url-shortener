@@ -1,9 +1,9 @@
-package dev.horoz.url_shortener.api.auth.dto;
+package dev.horoz.url_shortener.dto.auth;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 
-public record LoginRequest(
+public record LoginRequestDto(
         @Email @NotBlank String email,
         @NotBlank String password
 ) {}

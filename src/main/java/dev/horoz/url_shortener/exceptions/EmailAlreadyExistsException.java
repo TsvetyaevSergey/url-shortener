@@ -1,4 +1,4 @@
-package dev.horoz.url_shortener.api.auth;
+package dev.horoz.url_shortener.exceptions;
 
 public class EmailAlreadyExistsException extends RuntimeException {
     public EmailAlreadyExistsException(String email) {

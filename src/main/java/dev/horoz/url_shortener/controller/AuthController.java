@@ -1,11 +1,11 @@
-package dev.horoz.url_shortener.api.auth;
+package dev.horoz.url_shortener.controller;
 
-import dev.horoz.url_shortener.api.auth.dto.LoginRequest;
-import dev.horoz.url_shortener.api.auth.dto.LoginResponse;
-import dev.horoz.url_shortener.api.auth.dto.RegisterRequest;
+import dev.horoz.url_shortener.service.AuthService;
+import dev.horoz.url_shortener.dto.auth.LoginRequestDto;
+import dev.horoz.url_shortener.dto.auth.LoginResponseDto;
+import dev.horoz.url_shortener.dto.auth.RegisterRequestDto;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
-import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -20,14 +20,14 @@ public class AuthController {
 
     @PostMapping("/register")
     @ResponseStatus(HttpStatus.CREATED)
-    public void register(@Valid @RequestBody RegisterRequest req) {
+    public void register(@Valid @RequestBody RegisterRequestDto req) {
         authService.register(req.email(), req.password());
     }
 
     @PostMapping("/login")
-    public LoginResponse login(@Valid @RequestBody LoginRequest req) {
+    public LoginResponseDto login(@Valid @RequestBody LoginRequestDto req) {
         String token = authService.loginAndIssueToken(req.email(), req.password());
-        return new LoginResponse(req.email(), token);
+        return new LoginResponseDto(req.email(), token);
     }
 
 }

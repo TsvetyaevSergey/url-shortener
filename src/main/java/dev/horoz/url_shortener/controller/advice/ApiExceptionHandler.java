@@ -1,6 +1,6 @@
-package dev.horoz.url_shortener.api;
+package dev.horoz.url_shortener.controller.advice;
 
-import dev.horoz.url_shortener.api.auth.EmailAlreadyExistsException;
+import dev.horoz.url_shortener.exceptions.EmailAlreadyExistsException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.security.core.AuthenticationException;
