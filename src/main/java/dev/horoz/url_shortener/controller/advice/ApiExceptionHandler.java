@@ -1,6 +1,7 @@
 package dev.horoz.url_shortener.controller.advice;
 
 import dev.horoz.url_shortener.exceptions.EmailAlreadyExistsException;
+import dev.horoz.url_shortener.exceptions.InvalidTargetUrlException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.security.core.AuthenticationException;
@@ -15,6 +16,15 @@ public class ApiExceptionHandler {
     public ProblemDetail handleEmailExists(EmailAlreadyExistsException ex) {
         ProblemDetail pd = ProblemDetail.forStatus(HttpStatus.CONFLICT);
         pd.setTitle("Email already exists");
+        pd.setDetail(ex.getMessage());
+        return pd;
+    }
+
+    @ExceptionHandler(InvalidTargetUrlException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ProblemDetail invalidUrl(InvalidTargetUrlException ex) {
+        ProblemDetail pd = ProblemDetail.forStatus(HttpStatus.BAD_REQUEST);
+        pd.setTitle("Invalid target URL");
         pd.setDetail(ex.getMessage());
         return pd;
     }
