@@ -6,11 +6,14 @@ import dev.horoz.url_shortener.repository.LinkRepository;
 import dev.horoz.url_shortener.repository.UserRepository;
 import dev.horoz.url_shortener.service.slug.SlugGenerator;
 import dev.horoz.url_shortener.service.validation.UrlValidationService;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.hibernate.exception.ConstraintViolationException;
 
 import java.time.Instant;
+import java.util.Optional;
 
 @Service
 public class LinkService {
@@ -34,16 +37,47 @@ public class LinkService {
     public Link createLink(Authentication authentication, String targetUrl, Instant expiresAt) {
         String email = authentication.getName();
         String validUrl = urlValidationService.normalizeAndValidateUrl(targetUrl);
+
         User user = userRepository.findByEmailIgnoreCase(email)
                 .orElseThrow(() -> new IllegalStateException("Authenticated user not found: " + email));
+
+        Optional<Link> existingLink = linkRepository.findByTargetUrlIgnoreCase(validUrl);
+        if (existingLink.isPresent()) return existingLink.get();
 
         Link link = new Link();
         link.setUser(user);
         link.setTargetUrl(validUrl);
-        link.setSlug(slugGenerator.nextSlug());
         link.setExpiresAt(expiresAt);
+        int MAX_ATTEMPTS = 10;
+        for (int i = 0; i < MAX_ATTEMPTS; i++) {
+            String slug = slugGenerator.nextSlug();
+            link.setSlug(slug);
+            try {
+                linkRepository.saveAndFlush(link);
+                return link;
+            } catch (DataIntegrityViolationException e) {
+                if (isUniqueSlugViolation(e)) {
+                    continue;
+                }
+                throw e;
+            }
 
-        return linkRepository.save(link);
+        }
+        throw new IllegalStateException(
+                String.format("Could not generate unique slug after %d attempts", MAX_ATTEMPTS)
+        );
+    }
+
+    private boolean isUniqueSlugViolation(DataIntegrityViolationException e) {
+        Throwable t = e;
+        while (t != null) {
+            if (t instanceof ConstraintViolationException cve) {
+                String name = cve.getConstraintName();
+                return name != null && name.equalsIgnoreCase("links_slug_uidx");
+            }
+            t = t.getCause();
+        }
+        return false;
     }
 
 

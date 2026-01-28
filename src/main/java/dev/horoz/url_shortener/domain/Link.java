@@ -8,6 +8,10 @@ import java.time.Instant;
 import java.util.Objects;
 import java.util.UUID;
 
+import org.hibernate.annotations.ColumnDefault;
+import org.hibernate.annotations.Generated;
+import org.hibernate.annotations.GenerationTime;
+
 @Getter
 @Entity
 @Table(name = "links")
@@ -33,9 +37,13 @@ public class Link {
     @Column(name = "expires_at", columnDefinition = "TIMESTAMPTZ")
     private Instant expiresAt;
 
+    @Generated
+    @ColumnDefault("0")
     @Column(name = "clicks_total", insertable = false)
     private Long clicksTotal;
 
+    @Generated
+    @ColumnDefault("now()")
     @Column(name = "created_at", insertable = false, updatable = false)
     private Instant createdAt;
 
