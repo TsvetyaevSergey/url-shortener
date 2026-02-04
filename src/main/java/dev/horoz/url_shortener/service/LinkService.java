@@ -11,17 +11,18 @@ import dev.horoz.url_shortener.service.validation.UrlValidationService;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.hibernate.exception.ConstraintViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Instant;
-import java.util.Collections;
-import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 @Service
 public class LinkService {
@@ -91,6 +92,18 @@ public class LinkService {
         );
 
         return linkRepository.findAllByUser(user,pageable).map(LinkMapper::toDto);
+    }
+
+    public LinkResponseDto getLink(Authentication authentication, UUID id) {
+        String email = authentication.getName();
+
+        User user = userRepository.findByEmailIgnoreCase(email)
+                .orElseThrow(() -> new IllegalStateException("Authenticated user not found: " + email));
+
+        Link link = linkRepository.findByIdAndUser(id, user)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+
+        return LinkMapper.toDto(link);
     }
 
     private boolean isUniqueSlugViolation(DataIntegrityViolationException e) {

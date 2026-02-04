@@ -10,6 +10,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.UUID;
+
 @RestController
 @RequestMapping("/links")
 public class LinkController {
@@ -34,6 +36,11 @@ public class LinkController {
             Authentication authentication
     ) {
         return linkService.getLinks(authentication, page, size);
+    }
+
+    @GetMapping("/{id}")
+    public LinkResponseDto getById(@PathVariable UUID id, Authentication authentication) {
+        return linkService.getLink(authentication, id);
     }
 
 
