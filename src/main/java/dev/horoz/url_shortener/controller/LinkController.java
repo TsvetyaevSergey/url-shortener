@@ -6,6 +6,7 @@ import dev.horoz.url_shortener.dto.link.LinkResponseDto;
 import dev.horoz.url_shortener.mapper.LinkMapper;
 import dev.horoz.url_shortener.service.LinkService;
 import jakarta.validation.Valid;
+import org.springframework.data.domain.Page;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
@@ -25,5 +26,15 @@ public class LinkController {
         Link link = linkService.createLink(authentication, dto.targetUrl(), dto.expiresAt());
         return LinkMapper.toDto(link);
     }
+
+    @GetMapping
+    public Page<LinkResponseDto> getLinks(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            Authentication authentication
+    ) {
+        return linkService.getLinks(authentication, page, size);
+    }
+
 
 }
