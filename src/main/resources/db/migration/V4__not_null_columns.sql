@@ -1,2 +1,0 @@
-ALTER TABLE links ALTER COLUMN clicks_total SET NOT NULL;
-ALTER TABLE links ALTER COLUMN created_at SET NOT NULL;
