@@ -106,6 +106,18 @@ public class LinkService {
         return LinkMapper.toDto(link);
     }
 
+    public void deleteLink(Authentication authentication, UUID id) {
+        String email = authentication.getName();
+
+        User user = userRepository.findByEmailIgnoreCase(email)
+                .orElseThrow(() -> new IllegalStateException("Authenticated user not found: " + email));
+
+        Link link = linkRepository.findByIdAndUser(id, user)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+
+        linkRepository.delete(link);
+    }
+
     private boolean isUniqueSlugViolation(DataIntegrityViolationException e) {
         Throwable t = e;
         while (t != null) {
