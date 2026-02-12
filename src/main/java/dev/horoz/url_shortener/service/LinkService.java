@@ -25,9 +25,10 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.Optional;
 import java.util.UUID;
-
 @Service
 public class LinkService {
+
+    private static final int MAX_ATTEMPTS = 10;
 
     private final UserRepository userRepository;
     private final LinkRepository linkRepository;
@@ -44,70 +45,38 @@ public class LinkService {
         this.urlValidationService = urlValidationService;
     }
 
+    // ========================================================================
+    // Public API
+    // ========================================================================
+
     @Transactional
     public Link createLink(Authentication authentication, String targetUrl, String customSlug) {
         String email = authentication.getName();
         String validUrl = urlValidationService.normalizeAndValidateUrl(targetUrl);
 
-        User user = userRepository.findByEmailIgnoreCase(email)
-                .orElseThrow(() -> new IllegalStateException("Authenticated user not found: " + email));
+        User user = getAuthenticatedUser(email);
 
         Optional<Link> existingLink = linkRepository.findByTargetUrlIgnoreCase(validUrl);
         if (existingLink.isPresent()) return existingLink.get();
 
-        Link link = new Link();
-        link.setUser(user);
-        link.setTargetUrl(validUrl);
-        Instant expiresAt = Instant.now().atZone(ZoneOffset.UTC).plusMonths(1).toInstant();
-        link.setExpiresAt(expiresAt);
-        if (customSlug.isBlank()) {
-            int MAX_ATTEMPTS = 10;
-            for (int i = 0; i < MAX_ATTEMPTS; i++) {
-                String slug = slugGenerator.nextSlug();
-                link.setSlug(slug);
-                try {
-                    linkRepository.saveAndFlush(link);
-                    return link;
-                } catch (DataIntegrityViolationException e) {
-                    if (isUniqueSlugViolation(e)) {
-                        continue;
-                    }
-                    throw e;
-                }
+        Link link = buildNewLink(user, validUrl);
 
-            }
-            throw new IllegalStateException(
-                    String.format("Could not generate unique slug after %d attempts", MAX_ATTEMPTS)
-            );
-        } else {
-            link.setSlug(customSlug);
-            try {
-                linkRepository.saveAndFlush(link);
-                return link;
-            } catch (DataIntegrityViolationException e) {
-                if (isUniqueSlugViolation(e)) {
-                    throw new SlugAlreadyExistsException(customSlug);
-                }
-            }
-            throw new IllegalStateException(
-                    "This custom link name has already been taken. Try something else"
-            );
+        if (customSlug.isBlank()) {
+            return saveWithGeneratedSlug(link);
         }
 
+        return saveWithCustomSlugOrThrow(link, customSlug);
     }
 
     public Page<LinkResponseDto> getLinks(Authentication authentication, Integer page, Integer size) {
         String email = authentication.getName();
 
-        User user = userRepository.findByEmailIgnoreCase(email)
-                .orElseThrow(() -> new IllegalStateException("Authenticated user not found: " + email));
+        User user = getAuthenticatedUser(email);
 
         Pageable pageable = PageRequest.of(
                 page,
                 size,
                 Sort.by("createdAt").descending()
-
-
         );
 
         return linkRepository.findAllByUser(user, pageable).map(LinkMapper::toDto);
@@ -116,11 +85,9 @@ public class LinkService {
     public LinkResponseDto getLink(Authentication authentication, UUID id) {
         String email = authentication.getName();
 
-        User user = userRepository.findByEmailIgnoreCase(email)
-                .orElseThrow(() -> new IllegalStateException("Authenticated user not found: " + email));
+        User user = getAuthenticatedUser(email);
 
-        Link link = linkRepository.findByIdAndUser(id, user)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        Link link = getLink(user, id);
 
         return LinkMapper.toDto(link);
     }
@@ -128,14 +95,85 @@ public class LinkService {
     public void deleteLink(Authentication authentication, UUID id) {
         String email = authentication.getName();
 
-        User user = userRepository.findByEmailIgnoreCase(email)
-                .orElseThrow(() -> new IllegalStateException("Authenticated user not found: " + email));
+        User user = getAuthenticatedUser(email);
 
-        Link link = linkRepository.findByIdAndUser(id, user)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        Link link = getLink(user, id);
 
         linkRepository.delete(link);
     }
+
+    // ========================================================================
+    // Private helpers: auth/user
+    // ========================================================================
+
+    private User getAuthenticatedUser(String email) {
+        return userRepository.findByEmailIgnoreCase(email)
+                .orElseThrow(() -> new IllegalStateException("Authenticated user not found: " + email));
+    }
+
+    // ========================================================================
+    // Private helpers: link
+    // ========================================================================
+
+    private Link getLink(User user, UUID id) {
+        return linkRepository.findByIdAndUser(id, user)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+    }
+
+    private Link buildNewLink(User user, String validUrl) {
+        Link link = new Link();
+        link.setUser(user);
+        link.setTargetUrl(validUrl);
+        link.setExpiresAt(defaultExpiresAt());
+        return link;
+    }
+
+    private Instant defaultExpiresAt() {
+        return Instant.now().atZone(ZoneOffset.UTC).plusMonths(1).toInstant();
+    }
+
+    // ========================================================================
+    // Private helpers: slug + persistence
+    // ========================================================================
+
+    private Link saveWithGeneratedSlug(Link link) {
+        for (int i = 0; i < MAX_ATTEMPTS; i++) {
+            String slug = slugGenerator.nextSlug();
+            link.setSlug(slug);
+
+            try {
+                linkRepository.saveAndFlush(link);
+                return link;
+            } catch (DataIntegrityViolationException e) {
+                if (isUniqueSlugViolation(e)) {
+                    continue;
+                }
+                throw e;
+            }
+        }
+
+        throw new IllegalStateException(
+                java.lang.String.format("Could not generate unique slug after %d attempts", MAX_ATTEMPTS)
+        );
+    }
+
+    private Link saveWithCustomSlugOrThrow(Link link, String customSlug) {
+        link.setSlug(customSlug);
+
+        try {
+            linkRepository.saveAndFlush(link);
+            return link;
+        } catch (DataIntegrityViolationException e) {
+            if (isUniqueSlugViolation(e)) {
+                throw new SlugAlreadyExistsException(customSlug);
+            }
+            throw e;
+        }
+    }
+
+    // ========================================================================
+    // Private helpers: errors
+    // ========================================================================
 
     private boolean isUniqueSlugViolation(DataIntegrityViolationException e) {
         Throwable t = e;
@@ -148,6 +186,4 @@ public class LinkService {
         }
         return false;
     }
-
-
 }
