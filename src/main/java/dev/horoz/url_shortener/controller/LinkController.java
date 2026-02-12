@@ -26,7 +26,7 @@ public class LinkController {
 
     @PostMapping("/create")
     public LinkResponseDto create(@Valid Authentication authentication, @RequestBody LinkCreateRequestDto dto) {
-        Link link = linkService.createLink(authentication, dto.targetUrl());
+        Link link = linkService.createLink(authentication, dto.targetUrl(), dto.customSlug());
         return LinkMapper.toDto(link);
     }
 

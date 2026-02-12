@@ -2,6 +2,7 @@ package dev.horoz.url_shortener.controller.advice;
 
 import dev.horoz.url_shortener.exceptions.EmailAlreadyExistsException;
 import dev.horoz.url_shortener.exceptions.InvalidTargetUrlException;
+import dev.horoz.url_shortener.exceptions.SlugAlreadyExistsException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.security.core.AuthenticationException;
@@ -35,6 +36,15 @@ public class ApiExceptionHandler {
         ProblemDetail pd = ProblemDetail.forStatus(HttpStatus.BAD_REQUEST);
         pd.setTitle("Validation error");
         pd.setDetail("Request validation failed");
+        return pd;
+    }
+
+    @ExceptionHandler(SlugAlreadyExistsException.class)
+    @ResponseStatus(HttpStatus.CONFLICT)
+    public ProblemDetail conflictSlug(SlugAlreadyExistsException ex) {
+        ProblemDetail pd = ProblemDetail.forStatus(HttpStatus.CONFLICT);
+        pd.setTitle("Slug already exists");
+        pd.setDetail("The provided custom slug is already in use. Please choose a different value.");
         return pd;
     }
 

@@ -3,6 +3,7 @@ package dev.horoz.url_shortener.service;
 import dev.horoz.url_shortener.domain.Link;
 import dev.horoz.url_shortener.domain.User;
 import dev.horoz.url_shortener.dto.link.LinkResponseDto;
+import dev.horoz.url_shortener.exceptions.SlugAlreadyExistsException;
 import dev.horoz.url_shortener.mapper.LinkMapper;
 import dev.horoz.url_shortener.repository.LinkRepository;
 import dev.horoz.url_shortener.repository.UserRepository;
@@ -44,7 +45,7 @@ public class LinkService {
     }
 
     @Transactional
-    public Link createLink(Authentication authentication, String targetUrl) {
+    public Link createLink(Authentication authentication, String targetUrl, String customSlug) {
         String email = authentication.getName();
         String validUrl = urlValidationService.normalizeAndValidateUrl(targetUrl);
 
@@ -59,24 +60,40 @@ public class LinkService {
         link.setTargetUrl(validUrl);
         Instant expiresAt = Instant.now().atZone(ZoneOffset.UTC).plusMonths(1).toInstant();
         link.setExpiresAt(expiresAt);
-        int MAX_ATTEMPTS = 10;
-        for (int i = 0; i < MAX_ATTEMPTS; i++) {
-            String slug = slugGenerator.nextSlug();
-            link.setSlug(slug);
+        if (customSlug.isBlank()) {
+            int MAX_ATTEMPTS = 10;
+            for (int i = 0; i < MAX_ATTEMPTS; i++) {
+                String slug = slugGenerator.nextSlug();
+                link.setSlug(slug);
+                try {
+                    linkRepository.saveAndFlush(link);
+                    return link;
+                } catch (DataIntegrityViolationException e) {
+                    if (isUniqueSlugViolation(e)) {
+                        continue;
+                    }
+                    throw e;
+                }
+
+            }
+            throw new IllegalStateException(
+                    String.format("Could not generate unique slug after %d attempts", MAX_ATTEMPTS)
+            );
+        } else {
+            link.setSlug(customSlug);
             try {
                 linkRepository.saveAndFlush(link);
                 return link;
             } catch (DataIntegrityViolationException e) {
                 if (isUniqueSlugViolation(e)) {
-                    continue;
+                    throw new SlugAlreadyExistsException(customSlug);
                 }
-                throw e;
             }
-
+            throw new IllegalStateException(
+                    "This custom link name has already been taken. Try something else"
+            );
         }
-        throw new IllegalStateException(
-                String.format("Could not generate unique slug after %d attempts", MAX_ATTEMPTS)
-        );
+
     }
 
     public Page<LinkResponseDto> getLinks(Authentication authentication, Integer page, Integer size) {
