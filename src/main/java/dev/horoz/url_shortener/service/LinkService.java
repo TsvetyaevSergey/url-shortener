@@ -1,0 +1,153 @@
+package dev.horoz.url_shortener.service;
+
+import dev.horoz.url_shortener.domain.Link;
+import dev.horoz.url_shortener.domain.User;
+import dev.horoz.url_shortener.dto.link.LinkResponseDto;
+import dev.horoz.url_shortener.exceptions.SlugAlreadyExistsException;
+import dev.horoz.url_shortener.mapper.LinkMapper;
+import dev.horoz.url_shortener.repository.LinkRepository;
+import dev.horoz.url_shortener.repository.UserRepository;
+import dev.horoz.url_shortener.service.slug.SlugGenerator;
+import dev.horoz.url_shortener.service.validation.UrlValidationService;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.core.Authentication;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.hibernate.exception.ConstraintViolationException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.web.server.ResponseStatusException;
+
+import java.time.Instant;
+import java.time.ZoneOffset;
+import java.util.Optional;
+import java.util.UUID;
+
+@Service
+public class LinkService {
+
+    private final UserRepository userRepository;
+    private final LinkRepository linkRepository;
+    private final SlugGenerator slugGenerator;
+    private final UrlValidationService urlValidationService;
+
+    public LinkService(UserRepository userRepository,
+                       LinkRepository linkRepository,
+                       SlugGenerator slugGenerator,
+                       UrlValidationService urlValidationService) {
+        this.userRepository = userRepository;
+        this.linkRepository = linkRepository;
+        this.slugGenerator = slugGenerator;
+        this.urlValidationService = urlValidationService;
+    }
+
+    @Transactional
+    public Link createLink(Authentication authentication, String targetUrl, String customSlug) {
+        String email = authentication.getName();
+        String validUrl = urlValidationService.normalizeAndValidateUrl(targetUrl);
+
+        User user = userRepository.findByEmailIgnoreCase(email)
+                .orElseThrow(() -> new IllegalStateException("Authenticated user not found: " + email));
+
+        Optional<Link> existingLink = linkRepository.findByTargetUrlIgnoreCase(validUrl);
+        if (existingLink.isPresent()) return existingLink.get();
+
+        Link link = new Link();
+        link.setUser(user);
+        link.setTargetUrl(validUrl);
+        Instant expiresAt = Instant.now().atZone(ZoneOffset.UTC).plusMonths(1).toInstant();
+        link.setExpiresAt(expiresAt);
+        if (customSlug.isBlank()) {
+            int MAX_ATTEMPTS = 10;
+            for (int i = 0; i < MAX_ATTEMPTS; i++) {
+                String slug = slugGenerator.nextSlug();
+                link.setSlug(slug);
+                try {
+                    linkRepository.saveAndFlush(link);
+                    return link;
+                } catch (DataIntegrityViolationException e) {
+                    if (isUniqueSlugViolation(e)) {
+                        continue;
+                    }
+                    throw e;
+                }
+
+            }
+            throw new IllegalStateException(
+                    String.format("Could not generate unique slug after %d attempts", MAX_ATTEMPTS)
+            );
+        } else {
+            link.setSlug(customSlug);
+            try {
+                linkRepository.saveAndFlush(link);
+                return link;
+            } catch (DataIntegrityViolationException e) {
+                if (isUniqueSlugViolation(e)) {
+                    throw new SlugAlreadyExistsException(customSlug);
+                }
+            }
+            throw new IllegalStateException(
+                    "This custom link name has already been taken. Try something else"
+            );
+        }
+
+    }
+
+    public Page<LinkResponseDto> getLinks(Authentication authentication, Integer page, Integer size) {
+        String email = authentication.getName();
+
+        User user = userRepository.findByEmailIgnoreCase(email)
+                .orElseThrow(() -> new IllegalStateException("Authenticated user not found: " + email));
+
+        Pageable pageable = PageRequest.of(
+                page,
+                size,
+                Sort.by("createdAt").descending()
+
+
+        );
+
+        return linkRepository.findAllByUser(user, pageable).map(LinkMapper::toDto);
+    }
+
+    public LinkResponseDto getLink(Authentication authentication, UUID id) {
+        String email = authentication.getName();
+
+        User user = userRepository.findByEmailIgnoreCase(email)
+                .orElseThrow(() -> new IllegalStateException("Authenticated user not found: " + email));
+
+        Link link = linkRepository.findByIdAndUser(id, user)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+
+        return LinkMapper.toDto(link);
+    }
+
+    public void deleteLink(Authentication authentication, UUID id) {
+        String email = authentication.getName();
+
+        User user = userRepository.findByEmailIgnoreCase(email)
+                .orElseThrow(() -> new IllegalStateException("Authenticated user not found: " + email));
+
+        Link link = linkRepository.findByIdAndUser(id, user)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+
+        linkRepository.delete(link);
+    }
+
+    private boolean isUniqueSlugViolation(DataIntegrityViolationException e) {
+        Throwable t = e;
+        while (t != null) {
+            if (t instanceof ConstraintViolationException cve) {
+                String name = cve.getConstraintName();
+                return name != null && name.equalsIgnoreCase("links_slug_uidx");
+            }
+            t = t.getCause();
+        }
+        return false;
+    }
+
+
+}

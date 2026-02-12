@@ -13,3 +13,9 @@ spring:
   flyway:
     enabled: true
     locations: classpath:db/migration
+
+app:
+  security:
+    jwt:
+      secret: "F6AF1B3F56C04F9CF4576BB4AFA38CDC"
+      ttl: 3600
