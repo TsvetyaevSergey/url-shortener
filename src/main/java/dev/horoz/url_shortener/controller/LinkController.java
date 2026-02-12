@@ -26,8 +26,7 @@ public class LinkController {
 
     @PostMapping("/create")
     public LinkResponseDto create(@Valid Authentication authentication, @RequestBody LinkCreateRequestDto dto) {
-        Link link = linkService.createLink(authentication, dto.targetUrl(), dto.customSlug());
-        return LinkMapper.toDto(link);
+        return linkService.createLink(authentication, dto.targetUrl(), dto.customSlug());
     }
 
     @GetMapping
@@ -42,6 +41,11 @@ public class LinkController {
     @GetMapping("/{id}")
     public LinkResponseDto getById(@PathVariable UUID id, Authentication authentication) {
         return linkService.getLink(authentication, id);
+    }
+
+    @PatchMapping("/{id}")
+    public LinkResponseDto updateLink(@PathVariable UUID id, Authentication authentication) {
+        return linkService.updateLink(authentication, id);
     }
 
     @DeleteMapping("/{id}")

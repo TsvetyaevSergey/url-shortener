@@ -50,22 +50,22 @@ public class LinkService {
     // ========================================================================
 
     @Transactional
-    public Link createLink(Authentication authentication, String targetUrl, String customSlug) {
+    public LinkResponseDto createLink(Authentication authentication, String targetUrl, String customSlug) {
         String email = authentication.getName();
         String validUrl = urlValidationService.normalizeAndValidateUrl(targetUrl);
 
         User user = getAuthenticatedUser(email);
 
         Optional<Link> existingLink = linkRepository.findByTargetUrlIgnoreCase(validUrl);
-        if (existingLink.isPresent()) return existingLink.get();
+        if (existingLink.isPresent()) return LinkMapper.toDto(existingLink.get());
 
         Link link = buildNewLink(user, validUrl);
 
         if (customSlug == null || customSlug.isBlank()) {
-            return saveWithGeneratedSlug(link);
+            return LinkMapper.toDto(saveWithGeneratedSlug(link));
         }
 
-        return saveWithCustomSlugOrThrow(link, customSlug);
+        return LinkMapper.toDto(saveWithCustomSlugOrThrow(link, customSlug));
     }
 
     public Page<LinkResponseDto> getLinks(Authentication authentication, Integer page, Integer size) {
@@ -100,6 +100,16 @@ public class LinkService {
         Link link = getLink(user, id);
 
         linkRepository.delete(link);
+    }
+
+    @Transactional
+    public LinkResponseDto updateLink(Authentication authentication, UUID id) {
+        String email = authentication.getName();
+        User user = getAuthenticatedUser(email);
+        Link link = getLink(user, id);
+        link.setExpiresAt(defaultExpiresAt());
+
+        return LinkMapper.toDto(link);
     }
 
     // ========================================================================
