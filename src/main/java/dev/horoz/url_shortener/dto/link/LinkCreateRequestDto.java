@@ -11,9 +11,7 @@ public record LinkCreateRequestDto(
         String targetUrl,
 
         @Size(min = 3, max = 32)
-        String customSlug,
-
-        Instant expiresAt
+        String customSlug
 
 ) {
 }

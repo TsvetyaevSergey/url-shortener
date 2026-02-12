@@ -21,6 +21,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -43,7 +44,7 @@ public class LinkService {
     }
 
     @Transactional
-    public Link createLink(Authentication authentication, String targetUrl, Instant expiresAt) {
+    public Link createLink(Authentication authentication, String targetUrl) {
         String email = authentication.getName();
         String validUrl = urlValidationService.normalizeAndValidateUrl(targetUrl);
 
@@ -56,6 +57,7 @@ public class LinkService {
         Link link = new Link();
         link.setUser(user);
         link.setTargetUrl(validUrl);
+        Instant expiresAt = Instant.now().atZone(ZoneOffset.UTC).plusMonths(1).toInstant();
         link.setExpiresAt(expiresAt);
         int MAX_ATTEMPTS = 10;
         for (int i = 0; i < MAX_ATTEMPTS; i++) {
@@ -91,7 +93,7 @@ public class LinkService {
 
         );
 
-        return linkRepository.findAllByUser(user,pageable).map(LinkMapper::toDto);
+        return linkRepository.findAllByUser(user, pageable).map(LinkMapper::toDto);
     }
 
     public LinkResponseDto getLink(Authentication authentication, UUID id) {
