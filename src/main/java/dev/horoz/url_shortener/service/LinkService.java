@@ -61,7 +61,7 @@ public class LinkService {
 
         Link link = buildNewLink(user, validUrl);
 
-        if (customSlug.isBlank()) {
+        if (customSlug == null || customSlug.isBlank()) {
             return saveWithGeneratedSlug(link);
         }
 
