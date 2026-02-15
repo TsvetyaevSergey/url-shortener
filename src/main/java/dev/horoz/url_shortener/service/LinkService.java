@@ -84,21 +84,14 @@ public class LinkService {
     }
 
     public LinkResponseDto getLinkById(Authentication authentication, UUID id) {
-        String email = authentication.getName();
-
-        User user = getAuthenticatedUser(email);
-
-        Link link = requireLinkById(user, id);
+        Link link = requireOwnedLink(authentication, id);
 
         return LinkMapper.toDto(link);
     }
 
     public LinkStatsDto getLinkStatsById(Authentication authentication, UUID id) {
-        String email = authentication.getName();
 
-        User user = getAuthenticatedUser(email);
-
-        Link link = requireLinkById(user, id);
+        Link link = requireOwnedLink(authentication, id);
 
         return LinkMapper.toStatsDto(link);
     }
@@ -120,24 +113,18 @@ public class LinkService {
 
 
     public void deleteLinkById(Authentication authentication, UUID id) {
-        String email = authentication.getName();
-
-        User user = getAuthenticatedUser(email);
-
-        Link link = requireLinkById(user, id);
+        Link link = requireOwnedLink(authentication, id);
 
         linkRepository.delete(link);
     }
 
     @Transactional
     public LinkResponseDto updateLink(Authentication authentication, UUID id) {
-        String email = authentication.getName();
-        User user = getAuthenticatedUser(email);
-        Link link = requireLinkById(user, id);
+        Link link = requireOwnedLink(authentication, id);
         link.setExpiresAt(defaultExpiresAt());
-
         return LinkMapper.toDto(link);
     }
+
 
     // ========================================================================
     // Private helpers: auth/user
@@ -172,6 +159,12 @@ public class LinkService {
     private Instant defaultExpiresAt() {
         return Instant.now().atZone(ZoneOffset.UTC).plusMonths(1).toInstant();
     }
+
+    private Link requireOwnedLink(Authentication auth, UUID id) {
+        User user = getAuthenticatedUser(auth.getName());
+        return requireLinkById(user, id);
+    }
+
 
     // ========================================================================
     // Private helpers: slug + persistence
