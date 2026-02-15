@@ -34,8 +34,7 @@ public class SecurityConfig {
 
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/auth/**").permitAll()
-                        // public redirect for short links (one segment)
-                        .requestMatchers(HttpMethod.GET, "/*").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/r/**").permitAll()
                         .requestMatchers("/actuator/health").permitAll()
                         .anyRequest().authenticated()
                 )

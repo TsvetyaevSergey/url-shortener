@@ -82,22 +82,38 @@ public class LinkService {
         return linkRepository.findAllByUser(user, pageable).map(LinkMapper::toDto);
     }
 
-    public LinkResponseDto getLink(Authentication authentication, UUID id) {
+    public LinkResponseDto getLinkById(Authentication authentication, UUID id) {
         String email = authentication.getName();
 
         User user = getAuthenticatedUser(email);
 
-        Link link = getLink(user, id);
+        Link link = requireLinkById(user, id);
 
         return LinkMapper.toDto(link);
     }
 
-    public void deleteLink(Authentication authentication, UUID id) {
+    @Transactional
+    public String processRedirect(String slug) {
+
+        Link link = requireLinkBySlug(slug);
+
+        if (link.getExpiresAt() != null &&
+                link.getExpiresAt().isBefore(Instant.now())) {
+            throw new ResponseStatusException(HttpStatus.GONE);
+        }
+
+        linkRepository.incrementClicksTotal(link.getId());
+
+        return link.getTargetUrl();
+    }
+
+
+    public void deleteLinkById(Authentication authentication, UUID id) {
         String email = authentication.getName();
 
         User user = getAuthenticatedUser(email);
 
-        Link link = getLink(user, id);
+        Link link = requireLinkById(user, id);
 
         linkRepository.delete(link);
     }
@@ -106,7 +122,7 @@ public class LinkService {
     public LinkResponseDto updateLink(Authentication authentication, UUID id) {
         String email = authentication.getName();
         User user = getAuthenticatedUser(email);
-        Link link = getLink(user, id);
+        Link link = requireLinkById(user, id);
         link.setExpiresAt(defaultExpiresAt());
 
         return LinkMapper.toDto(link);
@@ -125,8 +141,12 @@ public class LinkService {
     // Private helpers: link
     // ========================================================================
 
-    private Link getLink(User user, UUID id) {
+    private Link requireLinkById(User user, UUID id) {
         return linkRepository.findByIdAndUser(id, user)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+    }
+    private Link requireLinkBySlug(String slug) {
+        return linkRepository.findBySlug(slug)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
     }
 
