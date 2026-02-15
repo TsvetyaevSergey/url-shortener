@@ -2,6 +2,7 @@ package dev.horoz.url_shortener.mapper;
 
 import dev.horoz.url_shortener.domain.Link;
 import dev.horoz.url_shortener.dto.link.LinkResponseDto;
+import dev.horoz.url_shortener.dto.link.LinkStatsDto;
 
 public final class LinkMapper {
 
@@ -15,6 +16,13 @@ public final class LinkMapper {
                 link.getExpiresAt(),
                 link.getClicksTotal(),
                 link.getCreatedAt()
+        );
+    }
+    public static LinkStatsDto toStatsDto(Link link) {
+        return new LinkStatsDto(
+                link.getClicksTotal(),
+                link.getCreatedAt(),
+                link.getExpiresAt()
         );
     }
 }

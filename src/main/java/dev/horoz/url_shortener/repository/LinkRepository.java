@@ -15,6 +15,7 @@ import java.util.UUID;
 
 public interface LinkRepository extends JpaRepository<Link, UUID> {
     Optional<Link> findByTargetUrlIgnoreCase(String targetUrl);
+    Optional<Link> findByUserAndTargetUrlIgnoreCase(User user, String targetUrl);
     Page<Link> findAllByUser(User user, Pageable pageable);
     Optional<Link> findByIdAndUser(UUID id, User user);
     Optional<Link> findBySlug(String slug);

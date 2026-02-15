@@ -3,6 +3,7 @@ package dev.horoz.url_shortener.controller;
 import dev.horoz.url_shortener.domain.Link;
 import dev.horoz.url_shortener.dto.link.LinkCreateRequestDto;
 import dev.horoz.url_shortener.dto.link.LinkResponseDto;
+import dev.horoz.url_shortener.dto.link.LinkStatsDto;
 import dev.horoz.url_shortener.mapper.LinkMapper;
 import dev.horoz.url_shortener.service.LinkService;
 import jakarta.validation.Valid;
@@ -43,6 +44,10 @@ public class LinkController {
     @GetMapping("/{id}")
     public LinkResponseDto getById(@PathVariable UUID id, Authentication authentication) {
         return linkService.getLinkById(authentication, id);
+    }
+    @GetMapping("/{id}/stats")
+    public LinkStatsDto getLinkStatsById(@PathVariable UUID id, Authentication authentication) {
+        return linkService.getLinkStatsById(authentication, id);
     }
 
     @PatchMapping("/{id}")

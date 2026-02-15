@@ -3,6 +3,7 @@ package dev.horoz.url_shortener.service;
 import dev.horoz.url_shortener.domain.Link;
 import dev.horoz.url_shortener.domain.User;
 import dev.horoz.url_shortener.dto.link.LinkResponseDto;
+import dev.horoz.url_shortener.dto.link.LinkStatsDto;
 import dev.horoz.url_shortener.exceptions.SlugAlreadyExistsException;
 import dev.horoz.url_shortener.mapper.LinkMapper;
 import dev.horoz.url_shortener.repository.LinkRepository;
@@ -56,7 +57,7 @@ public class LinkService {
 
         User user = getAuthenticatedUser(email);
 
-        Optional<Link> existingLink = linkRepository.findByTargetUrlIgnoreCase(validUrl);
+        Optional<Link> existingLink = linkRepository.findByUserAndTargetUrlIgnoreCase(user, validUrl);
         if (existingLink.isPresent()) return LinkMapper.toDto(existingLink.get());
 
         Link link = buildNewLink(user, validUrl);
@@ -90,6 +91,16 @@ public class LinkService {
         Link link = requireLinkById(user, id);
 
         return LinkMapper.toDto(link);
+    }
+
+    public LinkStatsDto getLinkStatsById(Authentication authentication, UUID id) {
+        String email = authentication.getName();
+
+        User user = getAuthenticatedUser(email);
+
+        Link link = requireLinkById(user, id);
+
+        return LinkMapper.toStatsDto(link);
     }
 
     @Transactional
